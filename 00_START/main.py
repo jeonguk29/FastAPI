@@ -1,19 +1,34 @@
-from fastapi import FastAPI, Query
-from typing import List, Dict
+from fastapi import FastAPI
 
 app = FastAPI()
 
-'''
-Query 는 쿼리 매개변수의 기본값 설정 및 유효성 검사에 사용됩니다. Query([) 는 매개변수가 필수가 아니며, 기본값 으로 빈 리스트를 설정합니다.
-List 타입 힌트는 반드시 Query0 와 함께 사용해야 합니다
+@app.get("/")
+def read_root():
+    return {"message": "Hello, FastAPI"}
 
-async를 씀으로서 비동기를 명시 await과 같이써야 비동기 작업이 가능함 이것만으로는 비동기 작업을 할 수 있는건 아님
-관습적으로 쓰는 경우도 종종 있음
-'''
+@app.get("/items/{item_id}")
+def read_item(item_id: int):
+    return {"item_id": item_id}
+
 @app.get("/items/")
-async def read_items(q: List[int] = Query([])):
-    return {"q": q}
+def read_items(skip: int = 0, limit: int = 10):
+    return {"skip": skip, "limit": limit}
 
-@app.post("/create-item/")
-async def create_item(item: Dict[str, int]):
-    return item
+'''
+post는 경로 뒤에 붙는게 아님
+http://127.0.0.1:8000/items/?skip=5&limit=12 이렇게 들어오지 않음 바디에 넣어서 들어옴
+'''
+@app.post("/items/")
+def create_item(item: dict):
+    return {"item": item}
+
+'''
+이렇게 쿼리 파라미터, 경로 파라미터 같이 사용 할 수도 있음
+'''
+@app.put("/items/{item_id}")
+def update_item(item_id: int, item: dict):
+    return {"item_id": item_id, "updated_item": item}
+
+@app.delete("/items/{item_id}")
+def delete_item(item_id: int):
+    return {"message": f"Item {item_id} has been deleted"}
