@@ -1,34 +1,27 @@
 from fastapi import FastAPI
+from pydantic import BaseModel
+from typing import Optional
 
 app = FastAPI()
 
-@app.get("/")
-def read_root():
-    return {"message": "Hello, FastAPI"}
+class Item(BaseModel):  # Pydantic 모델 정의
+    name: str
+    price: float
+    is_offer: bool = None
 
-@app.get("/items/{item_id}")
-def read_item(item_id: int):
-    return {"item_id": item_id}
-
-@app.get("/items/")
-def read_items(skip: int = 0, limit: int = 10):
-    return {"skip": skip, "limit": limit}
-
-'''
-post는 경로 뒤에 붙는게 아님
-http://127.0.0.1:8000/items/?skip=5&limit=12 이렇게 들어오지 않음 바디에 넣어서 들어옴
-'''
 @app.post("/items/")
-def create_item(item: dict):
-    return {"item": item}
-
+def create_item(item: Item):
+    return {"item": item.dict()}  # Pydantic 모델을 API에 사용 
 '''
-이렇게 쿼리 파라미터, 경로 파라미터 같이 사용 할 수도 있음
+반환 값을 사전 형식으로 리턴을 해줌
 '''
-@app.put("/items/{item_id}")
-def update_item(item_id: int, item: dict):
-    return {"item_id": item_id, "updated_item": item}
 
-@app.delete("/items/{item_id}")
-def delete_item(item_id: int):
-    return {"message": f"Item {item_id} has been deleted"}
+class Item2(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: float
+    tax: float = 0.1
+
+@app.post("/items2/")
+async def create_item(item: Item2):
+    return {"item": item.dict()}
