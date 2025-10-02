@@ -1,25 +1,17 @@
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
-from fastapi.responses import HTMLResponse
-from fastapi.responses import RedirectResponse, PlainTextResponse
+from fastapi import FastAPI, Query
 
 app = FastAPI()
+'''
+요청 리퀘스트에 대해 url 즉 쿼리 파라미터를 세밀하게 제어 가능함
+'''
+@app.get("/users/")
+def read_users(q: str = Query(None, max_length=50)): # 쿼리 파라미터를 제어 Pydantic 모델, Field 등과 유사한 기능을 가짐
+    return {"q": q}
 
-@app.get("/json", response_class=JSONResponse)
-def read_json():
-    return {"msg": "This is JSON"}
+@app.get("/items/")
+def read_items(internal_query: str = Query(None, alias="search")): #외부에서는 search로 보이게 됨 클라 사용 변수와 서버 내부 변수명을 분리하고 싶을때 사용
+    return {"query_handled": internal_query}
 
-
-@app.get("/html", response_class=HTMLResponse)
-def read_html():
-    return "<h1>This is HTML</h1>"
-
-
-@app.get("/text", response_class=PlainTextResponse)
-def read_text():
-    return "This is Plain Text"
-
-@app.get("/redirect")
-def read_redirect(): #해당 주소로 입력이 들어오면 아래 API로 이동해라 => 최종 보여지는건 /text에 해당하는 반환값
-    # 기존 url을 최신 url로 바꿀때 등 다양한 목적으로 사용
-    return RedirectResponse(url="/text")
+@app.get("/usersDepre/") # 조만간 지원을 멈출것이라고 명시 (업데이트나 등등 추후 호완성을 위해 표시를 해주는 것)
+def read_users(q: str = Query(None, deprecated=True)): # 주소가 없어진다는게 아님 해당 쿼리 파라미터가 없어질것이라고 알려주는 것임
+    return {"q": q}
