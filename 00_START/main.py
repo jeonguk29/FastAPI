@@ -1,17 +1,30 @@
 from fastapi import FastAPI, Query
 
 app = FastAPI()
-'''
-요청 리퀘스트에 대해 url 즉 쿼리 파라미터를 세밀하게 제어 가능함
-'''
-@app.get("/users/")
-def read_users(q: str = Query(None, max_length=50)): # 쿼리 파라미터를 제어 Pydantic 모델, Field 등과 유사한 기능을 가짐
-    return {"q": q}
+
+@app.get("/info/")
+def read_info(info: str = Query(None, description="정보를 입력해 주세요.")):
+    return {"info": info}
 
 @app.get("/items/")
-def read_items(internal_query: str = Query(None, alias="search")): #외부에서는 search로 보이게 됨 클라 사용 변수와 서버 내부 변수명을 분리하고 싶을때 사용
-    return {"query_handled": internal_query}
+def read_items(
+    # regex는 지금 정규 표현식이 들어가있 맨앞부터 맨뒤는 알파뱃만 가능하고 +는 하나 이상을 의미함
+    string_query: str = Query(default="default value", min_length=2, max_length=5, regex="^[a-zA-Z]+$", title="String Query", example="abc"),
+    number_query: float = Query(default=1.0, ge=0.5, le=10.5, title="Number Query", example=5.5)
+    # ge는 >= le는 <=를 이야기함 
+):
+    return {
+        "string_query_handled": string_query,
+        "number_query_handled": number_query
+    }
 
-@app.get("/usersDepre/") # 조만간 지원을 멈출것이라고 명시 (업데이트나 등등 추후 호완성을 위해 표시를 해주는 것)
-def read_users(q: str = Query(None, deprecated=True)): # 주소가 없어진다는게 아님 해당 쿼리 파라미터가 없어질것이라고 알려주는 것임
-    return {"q": q}
+'''
+이렇게 요청에서 파라미터들을 제어 할 수 있는 것이 Query 클래스
+HTTP Request
+- Packet: header/body
+- header options
+ - URL parameters(in GET)
+
+body
+ - parameters(in Post)
+'''
