@@ -1,44 +1,17 @@
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, HTTPException
 
 app = FastAPI()
 
-@app.post("/items/")
-def create_item(item: dict = Body(...)): #보낼때 해당 바디에 이 값이 필수다라고 선언 스웨거에서도 확인 가능함
-    return {"item": item}
-
-#Body 클래스는 Post, Put 방식에 적합함 
-
-
-@app.post("/advanced_items/")
-def create_advanced_item(item: dict = Body(
-    default=None, 
-    example={"key": "value"}, 
-    alias="item_alias", 
-    title="Sample Item", 
-    description="This is a sample item", 
-    deprecated=False)):
-    return {"item": item}
-
-
-@app.post("/advanced_items_2para/")
-def create_advanced_item(
-    item: dict = Body(
-        default=None,
-        example={"key": "value"},
-        alias="item_alias",
-        title="Sample Item",
-        description="This is a sample item",
-        deprecated=False
-    ),
-    additional_info: dict = Body(
-        default=None,
-        example={"info_key": "info_value"},
-        title="Additional Info",
-        description="This is some additional information about the item",
-        deprecated=False
-    )
-):
-    return {
-        "item_alias": item,
-        "additional_info": additional_info
-    }
+@app.get("/items/{item_id}")
+def read_item(item_id: int):
+    try:
+        if item_id < 0:
+            raise ValueError("음수는 허용되지 않습니다.")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) #제일 중요한건 에러 코드와 에러 메시지임
+    
+@app.get("/items2/{item_id}")
+def read_item(item_id: int):
+    if item_id == 42:
+        raise HTTPException(status_code=404, detail="Item not found") # try-except 없이 명시적으로 에러 처리, 에러를 보낼때는 raise를 붙임
+    return {"item_id": item_id}
