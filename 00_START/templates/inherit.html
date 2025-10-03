@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{# base.html 에서 공통 된 부분만 추출해서 상위에 삽입 나중에 메뉴나 이런거 공통 컴포넌트로 만들고 불러올때 유용함#}
+
+{% block content1 %}
+    <p>{{ text }}</p>  {# base.html 에서 해당 라인이 안에 들어가서 표시 되게 됨#}
+{% endblock %}
+
+{% block content2 %}
+    <p>야호</p> 
+{% endblock %}
+
