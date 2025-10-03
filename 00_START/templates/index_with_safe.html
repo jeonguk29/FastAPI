@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FastAPI & Jinja2 with Safe Filter</title>
+</head>
+<body>
+    {{ my_variable_with_html|safe }}
+    {# |safe 이 필터를 사용하면 HTML 태그가 포함된 문자열을 웹 페이지에서 안전하게 렌더링할 수 있습니다.
+        HTML 태그가 포함된 문자열을 그대로 렌더링하려면 이 필터를 사용합니다 
+        실제 추천하는 옵션은 아님 보통 <h1>{{ my_variable_with_html}}</h1>> 이렇게 쓰는게 안전함
+    #}
+</body>
+</html>
