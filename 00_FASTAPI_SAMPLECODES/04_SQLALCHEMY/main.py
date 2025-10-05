@@ -28,7 +28,7 @@ Base = declarative_base()
 class User(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String(50), unique=True, index=True)  # 사용자 이름, 중복 불가능하고 인덱싱합니다.
+    username = Column(String(50), index=True)  # 사용자 이름, 중복 불가능하고 인덱싱합니다.
     email = Column(String(120))  # 이메일 주소, 길이는 120자로 제한합니다.
 
 class UserCreate(BaseModel):
@@ -66,20 +66,39 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     # 새로 생성된 사용자 정보를 반환합니다.
     return {"id": new_user.id, "username": new_user.username, "email": new_user.email}
 
-from sqlalchemy import desc
 # 데이터 읽기
+from sqlalchemy import func, desc
+
 @app.get("/users/{user_id}")
 def read_user(user_id: int, db: Session = Depends(get_db)):
-    # sqlalchemy 쿼리와 필터링 User 테이블에서 특정 user_id에 해당하는 사용자를 조회
-    #db_users = db.query(User).order_by(User.id).all()
-    #db_users = db.query(User).order_by(desc(User.id)).all()
-    #db_users = db.query(User).limit(3).all()
-    db_users = db.query(User).count()
+    # 쿼리 실행
+    db_users_count = db.query(User.username, func.count(User.id)).group_by(User.username).all()
+    db_users_sum = db.query(User.username, func.sum(User.id)).group_by(User.username).all()
+    db_users_max = db.query(User.username, func.max(User.id)).group_by(User.username).all()
+    db_users_min = db.query(User.username, func.min(User.id)).group_by(User.username).all()
+
+    # 결과를 딕셔너리 리스트로 변환
+    print(db_users_count)
+    for user_count in db_users_count:
+        print(user_count)
     '''
-    if db_users == []:
-        return {"error": "User not found"}
+    ('유지선', 3)
+    ('정정욱', 3)
+    튜플 형태임 보낼때 직렬화 클라에서 역직렬화 할때 튜플형태 정상적으로 동작하지 않아서
+    아래 처럼 리스트안에 Json 형태로 만들어서 전달 해줌
     '''
-    return {"username": db_users}
+    users_count = [{"username": username, "count": count} for username, count in db_users_count]
+    users_sum = [{"username": username, "sum": sum} for username, sum in db_users_sum]
+    users_max = [{"username": username, "max": max} for username, max in db_users_max]
+    users_min = [{"username": username, "min": min} for username, min in db_users_min]
+
+    # 결과 반환
+    return {
+        "users_count": users_count, 
+        "users_sum": users_sum,
+        "users_max": users_max,
+        "users_min": users_min
+    }
 
 class UserUpdate(BaseModel):
     username: Optional[str] = None
