@@ -8,7 +8,7 @@ from typing import Optional
 
 # 1. 데이터 베이스 연결
 # mysql+pymysql://<username>:<password>@<host>:<port>/<dbname>
-DATABASE_URL = "" # 사용자의 데이터베이스 정보로 변경해야 합니다.
+DATABASE_URL = "" #사용자의 데이터베이스 정보로 변경해야 합니다.
 engine = create_engine(DATABASE_URL) 
 
 
@@ -103,3 +103,30 @@ def read_user(user_id: int, db: Session = Depends(get_db)):
 class UserUpdate(BaseModel):
     username: Optional[str] = None
     email: Optional[str] = None
+
+# Update 부분
+@app.put("/users/{user_id}")
+def update_user(user_id: int, user: UserUpdate, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.id == user_id).first()
+    if db_user is None:
+        return {"error": "User not found"}
+    
+    if user.username is not None: # 클라가 넘겨준 값이 있다면
+        db_user.username = user.username
+    if user.email is not None:
+        db_user.email = user.email
+
+    db.commit()
+    db.refresh(db_user) #디비 반영 값을 해당 변수에 최신화
+    return {"id": db_user.id, "username": db_user.username, "email": db_user.email}
+
+
+# Delete 부분
+@app.delete("/users/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.id == user_id).first()
+    if db_user is None:
+        return {"error": "사용자를 찾을 수 없습니다"}
+    db.delete(db_user)
+    db.commit()
+    return {"message": "사용자가 성공적으로 삭제되었습니다"}
