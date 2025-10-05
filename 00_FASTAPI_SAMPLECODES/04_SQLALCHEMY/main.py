@@ -66,14 +66,20 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     # 새로 생성된 사용자 정보를 반환합니다.
     return {"id": new_user.id, "username": new_user.username, "email": new_user.email}
 
+from sqlalchemy import desc
 # 데이터 읽기
 @app.get("/users/{user_id}")
 def read_user(user_id: int, db: Session = Depends(get_db)):
     # sqlalchemy 쿼리와 필터링 User 테이블에서 특정 user_id에 해당하는 사용자를 조회
-    db_user = db.query(User).filter(User.id == user_id).first()
-    if db_user is None:
+    #db_users = db.query(User).order_by(User.id).all()
+    #db_users = db.query(User).order_by(desc(User.id)).all()
+    #db_users = db.query(User).limit(3).all()
+    db_users = db.query(User).count()
+    '''
+    if db_users == []:
         return {"error": "User not found"}
-    return {"id": db_user.id, "username": db_user.username, "email": db_user.email}
+    '''
+    return {"username": db_users}
 
 class UserUpdate(BaseModel):
     username: Optional[str] = None
