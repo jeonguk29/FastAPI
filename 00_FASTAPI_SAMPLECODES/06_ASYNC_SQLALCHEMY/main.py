@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends
-from sqlalchemy import Column, Integer, String, MetaData
+from sqlalchemy import Column, Integer, String, MetaData, func
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -11,7 +11,7 @@ from typing import Optional
 
 ## 1. DB 접속
 # 비동기 데이터베이스 설정을 위한 문자열을 정의합니다. 이 문자열에는 사용자 이름, 비밀번호, 서버 주소, 데이터베이스 이름이 포함되어 있습니다.
-DATABASE_URL = ""  # 사용자의 데이터베이스 정보로 변경해야 합니다.
+DATABASE_URL = ""
 
 # SQLAlchemy의 비동기 엔진을 생성합니다. 
 engine = create_async_engine(DATABASE_URL, echo=True)
@@ -60,3 +60,34 @@ async def app_lifespan(app: FastAPI):
 # FastAPI 애플리케이션을 초기화합니다.
 app = FastAPI(lifespan=app_lifespan)
 
+@app.get("/")
+async def read_root():
+    # 루트 경로에 접근했을 때 비동기적으로 메시지를 반환합니다.
+    return {"message": "Hello, World!"}
+
+# 사용자를 생성하는 POST API 엔드포인트를 추가합니다. 이번에는 비동기 방식을 사용합니다.
+@app.post("/users/")
+async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
+    # Pydantic 모델을 사용하여 전달받은 데이터의 유효성을 검증하고, 새 User 인스턴스를 생성합니다.
+    new_user = User(username=user.username, email=user.email)
+    db.add(new_user)  # 생성된 User 인스턴스를 데이터베이스 세션에 추가합니다.
+    await db.commit()  # 데이터베이스에 대한 변경사항을 비동기적으로 커밋합니다.
+    await db.refresh(new_user)  # 데이터베이스로부터 새 User 인스턴스의 최신 정보를 비동기적으로 가져옵니다.
+    # 새로 생성된 사용자의 정보를 반환합니다.
+    return {"id": new_user.id, "username": new_user.username, "email": new_user.email}
+
+@app.get("/users/{user_id}")
+async def read_user(user_id: int, db: AsyncSession = Depends(get_db)):
+    # 비동기 세션을 사용하여 데이터베이스 쿼리를 실행합니다.
+    result = await db.execute(select(User).filter(User.id == user_id)) # 레코드를 가져와라
+    db_user = result.scalars().first() # 레코드가 여러개면 첫번째를 가져와라  
+    if db_user is None:
+        return {"error": "User not found"}
+    return {"id": db_user.id, "username": db_user.username, "email": db_user.email}
+
+@app.get("/count")
+async def count_user(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(func.count()).select_from(User))
+    count = result.scalars().one()
+    return { "count": count }
+# 비동기적으로 데이터를 검색 할때는 sqlalchemy의 query문법을 쓰는것이 아니라 execute, select문법을 조합해서 사용해야함
