@@ -91,3 +91,45 @@ async def count_user(db: AsyncSession = Depends(get_db)):
     count = result.scalars().one()
     return { "count": count }
 # 비동기적으로 데이터를 검색 할때는 sqlalchemy의 query문법을 쓰는것이 아니라 execute, select문법을 조합해서 사용해야함
+
+# Pydantic 모델 정의  
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+
+# Update 부분을 비동기로 변환
+@app.put("/users/{user_id}")
+async def update_user(user_id: int, user: UserUpdate, db: AsyncSession = Depends(get_db)):
+    # 비동기 쿼리 실행
+    result = await db.execute(select(User).filter(User.id == user_id))
+    db_user = result.scalars().first()
+
+    if db_user is None:
+        return {"error": "User not found"}
+    
+    # 사용자 정보 업데이트
+    if user.username is not None:
+        db_user.username = user.username
+    if user.email is not None:
+        db_user.email = user.email
+
+    # 데이터베이스 커밋 및 객체 새로고침
+    await db.commit()
+    await db.refresh(db_user)
+    
+    return {"id": db_user.id, "username": db_user.username, "email": db_user.email}
+
+
+@app.delete("/users/{user_id}")
+async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
+    # 비동기 쿼리 실행하여 사용자 찾기
+    result = await db.execute(select(User).filter(User.id == user_id))
+    db_user = result.scalars().first()
+
+    if db_user is None:
+        return {"error": "사용자를 찾을 수 없습니다"}
+
+    # 사용자 삭제 및 데이터베이스 커밋
+    await db.delete(db_user)
+    await db.commit()
+    return {"message": "사용자가 성공적으로 삭제되었습니다"}
