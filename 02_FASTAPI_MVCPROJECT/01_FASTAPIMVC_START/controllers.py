@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from models import User, Memo
 from dependencies import get_db, get_password_hash, verify_password
 from schemas import UserCreate, UserLogin, MemoCreate, MemoUpdate
@@ -14,28 +16,30 @@ templates = Jinja2Templates(directory="templates")
 
 # 회원 가입
 @router.post("/signup")
-async def signup(signup_data: UserCreate, db: Session = Depends(get_db)):
+async def signup(signup_data: UserCreate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.username == signup_data.username))
     # 먼저 username이 이미 존재하는지 확인
-    existing_user = db.query(User).filter(User.username == signup_data.username).first()
+    existing_user = result.scalars().first()
     if existing_user:
         raise HTTPException(status_code=400, detail="이미 동일 사용자 이름이 가입되어 있습니다.")
     hashed_password = get_password_hash(signup_data.password)
     new_user = User(username=signup_data.username, email=signup_data.email, hashed_password=hashed_password)
-    db.add(new_user)
-    
+    db.add(new_user) 
+     
     try:
-        db.commit()
+        await db.commit() #시간 오래 걸리는 거 앞에 await 키워드 삽입
     except Exception as e:
         print (e)
         raise HTTPException(status_code=500, detail="회원가입이 실패했습니다. 기입한 내용을 확인해보세요.")
     
-    db.refresh(new_user)
+    await db.refresh(new_user) # await 삽입
     return {"message": "회원가입이 성공했습니다."}
 
 # 로그인
 @router.post("/login")
-async def login(request: Request, signin_data: UserLogin, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == signin_data.username).first()
+async def login(request: Request, signin_data: UserLogin, db: AsyncSession = Depends(get_db)): 
+    result = await db.execute(select(User).where(User.username == signin_data.username))
+    user = result.scalars().first()
     if user and verify_password(signin_data.password, user.hashed_password):
         request.session["username"] = user.username
         return {"message":"로그인이 성공했습니다."}
@@ -50,17 +54,18 @@ async def logout(request: Request):
     
 # 메모 생성
 @router.post("/memos/")
-async def create_memo(request: Request, memo: MemoCreate, db: Session = Depends(get_db)):
+async def create_memo(request: Request, memo: MemoCreate, db: AsyncSession = Depends(get_db)):
     username = request.session.get("username")
     if username is None:
         raise HTTPException(status_code=401, detail="Not authorized")
-    user = db.query(User).filter(User.username == username).first()
+    result = await db.execute(select(User).where(User.username == username))
+    user = result.scalars().first()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     new_memo = Memo(user_id=user.id, title=memo.title, content=memo.content)
     db.add(new_memo)
-    db.commit()
-    db.refresh(new_memo)
+    await db.commit()
+    await db.refresh(new_memo)
     return new_memo
 
 # 메모 조회
@@ -69,11 +74,13 @@ async def list_memos(request: Request, db: Session = Depends(get_db)):
     username = request.session.get("username")
     if username is None:
         raise HTTPException(status_code=401, detail="Not authorized")
-    user = db.query(User).filter(User.username == username).first()
+    result = await db.execute(select(User).where(User.username == username))
+    user = result.scalars().first()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")    
     
-    memos = db.query(Memo).filter(Memo.user_id == user.id).all()
+    result = await db.execute(select(Memo).where(Memo.user_id == user.id))
+    memos = result.scalars().all()
     return templates.TemplateResponse("memos.html", {"request": request, "memos": memos, "username": username})
 
 # 메모 수정
@@ -82,10 +89,13 @@ async def update_memo(request: Request, memo_id: int, memo: MemoUpdate, db: Sess
     username = request.session.get("username")
     if username is None:
         raise HTTPException(status_code=401, detail="Not authorized")
-    user = db.query(User).filter(User.username == username).first()
+    result = await db.execute(select(User).where(User.username == username))
+    user = result.scalars().first()
     if user is None:
-        raise HTTPException(status_code=404, detail="User not found")     
-    db_memo = db.query(Memo).filter(Memo.user_id == user.id, Memo.id == memo_id).first()
+        raise HTTPException(status_code=404, detail="User not found")  
+    # filter, where 둘다 동일한 문법임 () 조건절만 넣으면 된다.
+    result = await db.execute(select(Memo).filter(Memo.user_id == user.id, Memo.id == memo_id))
+    db_memo = result.scalars().first()
     if db_memo is None:
         return ({"error": "Memo not found"})
 
@@ -94,8 +104,8 @@ async def update_memo(request: Request, memo_id: int, memo: MemoUpdate, db: Sess
     if memo.content is not None:
         db_memo.content = memo.content
         
-    db.commit()
-    db.refresh(db_memo)
+    await db.commit()
+    await db.refresh(db_memo)
     return db_memo
 
 # 메모 삭제
@@ -104,15 +114,18 @@ async def delete_memo(request: Request, memo_id: int, db: Session = Depends(get_
     username = request.session.get("username")
     if username is None:
         raise HTTPException(status_code=401, detail="Not authorized")
-    user = db.query(User).filter(User.username == username).first()
+    result = await db.execute(select(User).where(User.username == username))
+    user = result.scalars().first()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")     
-    db_memo = db.query(Memo).filter(Memo.user_id == user.id, Memo.id == memo_id).first()
+
+    result = await db.execute(select(Memo).filter(Memo.user_id == user.id, Memo.id == memo_id))
+    db_memo = result.scalars().first()    
     if db_memo is None:
         return ({"error": "Memo not found"})
         
-    db.delete(db_memo)
-    db.commit()
+    await db.delete(db_memo)
+    await db.commit()
     return ({"message": "Memo deleted"})
 
 
